@@ -2,8 +2,10 @@
 Peer Review project for predmachlearn-030 at Coursera
 
 ```{R}
-a_train
+install.packages("cart")
+library(caret)
 
+a_train
 a_test
 
 pca_train_obj <- preProcess(a_train[, -1], method=c('center', 'scale', 'pca'), thresh=0.8)
