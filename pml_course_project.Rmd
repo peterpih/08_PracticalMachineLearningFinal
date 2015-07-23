@@ -1,0 +1,15 @@
+
+Practical Machine Learning Class Project (predmachlearn-030)
+
+```{R}
+#
+library(caret)
+library(rpart)
+#
+#
+setwd("C:/R/PracticalMachineLearning/")
+#
+# read in the data
+trainFile <- "pml-training.csv"
+testFile <- "pml-testing.csv"
+```
