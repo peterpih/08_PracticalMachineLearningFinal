@@ -1,3 +1,7 @@
+```{R}
+setwd("C:/R/PracticalMachineLearning")
+```
+
 # PracticalMachineLearning
 Peer Review project for predmachlearn-030 at Coursera
 
