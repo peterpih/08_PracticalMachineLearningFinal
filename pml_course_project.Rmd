@@ -1,15 +1,216 @@
+---
+output: html_document
+---
 
-Practical Machine Learning Class Project (predmachlearn-030)
+Practical Machine Learning Class Project  
+Peter Pih  
+(predmachlearn-030)   
+July 2015  
 
-```{R}
-#
+###Summary
+
+We are given a data set with measurements of subjects doing excercises both correctly and incorrectly.   Using supervised machine learning techniques, we are asked to model a predictor for the correctness of the excecise.
+
+We use two classifiers random forests and BGM. Random forest is found to be superior in it's Accuracy with also the possibility of reducing the number of variables.  We found reducing the number of variables to a quarter of the original still allowed random forest to be very effective.
+
+
+###Loading Data and PreProcessing
+```{R, Echo=F, messages=F}
+setwd("C:/R/PracticalMachineLearning")
+```
+
+```{R, messages=F, warning=F}
+library(lattice)
+library(ggplot2)
 library(caret)
 library(rpart)
-#
-#
-setwd("C:/R/PracticalMachineLearning/")
-#
-# read in the data
+library(randomForest)
+```
+Load the data:
+```{R}
 trainFile <- "pml-training.csv"
 testFile <- "pml-testing.csv"
+train <- read.csv(trainFile, stringsAsFactors=FALSE, na.strings="NA")       # explicitly set NAs
+realtest <- read.csv(testFile, stringsAsFactors=FALSE, na.strings="NA")     # explicitly set NAs
 ```
+
+Check for differences between the training and testing data sets:
+```{R}
+train_names <- names(train)
+realtest_names <- names(realtest)
+length(names(train)) == length(names(realtest))
+sum(! train_names %in% realtest_names)
+```
+
+The difference between the two data set is one field: the training data has ***classe*** and the testing data set has ***problem_id***. Modify the data sets, excluding columns with NAs, the new datasets are called **newtrain** and **realtest**.
+```{R, eval=F}
+exclude_names <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", "cvtd_timestamp", "new_window",
+                   "num_window", "problem_id")
+
+# Get variable names which are relevent to the realtest set
+use_variables <- as.character()
+for (n in realtest_names){
+    if (sum(!is.na(realtest[,n])) > 0){
+        if (! n %in% exclude_names){
+            use_variables <- c(use_variables, n)
+        }
+    }
+}
+
+# add back the prediction for training
+use_name <- c("classe", use_variables)
+
+newtrain <- train[, use_name]
+newtrain$classe <- factor(newtrain$classe)  # have to factor() this since it's descriptive
+                                            # and taken out in the read() statement
+newrealtest <- realtest[, use_variables]
+```
+Now, split the traning set **newtrain** into a trainng and test data sets:
+```{R, eval=F}
+set.seed(123)
+inTrain <- createDataPartition(y=newtrain$classe, p=0.7, list=FALSE)
+
+newtrain_train <- newtrain[inTrain, ]
+newtrain_test <- newtrain[-inTrain, ]
+```
+###Random Forest
+Generate the random forest across the entire variable set
+```{R, eval=F}
+newtrain_train.rf <-train(classe~.,data=newtrain_train)
+```
+**Random forest summary table over all variables**
+```{R, echo=F}
+newtrain_train.rf <- readRDS("newtrain_train.rf.rds")
+newtrain_train <- readRDS("newtrain_train.rds")
+```
+```{R}
+dim(newtrain_train)         # show dimensions and number of variables
+newtrain_train.predict <- predict(newtrain_train.rf)
+confusionMatrix(newtrain_train.predict, newtrain_train$classe)
+```
+Random forest has proved an excellent classifier, and we wanted to see if it could be imporved upon by decreasing the number of necessary predictors. We cut the variable number in half, based each the variable's **gini score** creating a new training set **newtrain_half** and retrained.
+
+```{R, eval=F}
+n <- newtrain_train.rf$finalModel$importance
+n.df <- as.data.frame(n)
+n2<-n[order(n.df,n.df$MeanDecreaseGini,decreasing=T),,drop=F]
+
+halfnames.rf <- c("classe", rownames(n2)[1:(length(n2)/2)])
+newtrain_half <- newtrain_train[,halfnames.rf]
+```
+```{R, echo=F}
+# clean up memory
+rm(newtrain_train.rf)
+rm(newtrain_train)
+```
+```{R, eval=F}
+newtrain_half.rf <-train(classe~.,data=newtrain_half)   # train on half the variables
+```
+**Random forest summary table on half of the variables**
+```{R, echo=F}
+# read in the cached variables due to memory constraints
+
+newtrain_half.rf <- readRDS("newtrain_half.rf.rds")
+newtrain_half <- readRDS("newtrain_half.rds")
+```
+```{R}
+dim(newtrain_half)      # show dimensions and number of variables
+newtrain_half.predict <- predict(newtrain_half.rf)
+confusionMatrix(newtrain_half.predict, newtrain_half$classe)
+```
+Still showing a perfect score, we cut the table in half again to a quarter of the original variables, creating a new dataset **newtrain_qtr**
+
+```{R, eval=F}
+n <- newtrain_half.rf$finalModel$importance
+n.df <- as.data.frame(n)
+n2<-n[order(n.df,n.df$MeanDecreaseGini,decreasing=T),,drop=F]
+
+qtrnames.rf <- c("classe", rownames(n2)[1:(length(n2)/2)])
+newtrain_qtr <- newtrain_train[,qtrnames.rf]
+```
+```{R, echo=F}
+# clean up memory
+rm(newtrain_half.rf)
+rm(newtrain_half)
+```
+```{R, eval=F}
+newtrain_qtr.rf <-train(classe~.,data=newtrain_qtr)   # train on a quarter of the variables
+```
+**Random forest summary table on a quarter(qtr) of the variables**
+```{R, echo=F}
+# read in the cached variables due to memory constraints
+
+newtrain_qtr.rf <- readRDS("newtrain_qtr.rf.rds")
+newtrain_qtr <- readRDS("newtrain_qtr.rds")
+```
+```{R}
+dim(newtrain_qtr)      # show dimensions and number of variables
+newtrain_qtr.predict <- predict(newtrain_qtr.rf)
+confusionMatrix(newtrain_qtr.predict, newtrain_qtr$classe)
+```
+```{R,echo=F}
+# GET CACHED VARIABLES
+newtrain_qtr <- readRDS("newtrain_qtr.rds")
+newtrain_qtr.rf <- readRDS("newtrain_qtr.rf.rds")
+newtrain_test <- readRDS("newtrain_test.rds")
+```
+We **crossvalidate** the trained random forest on our testing data set
+```{R}
+qtrnames <- names(newtrain_qtr)
+newtrain_qtr_test <- newtrain_test[,qtrnames]
+p <- predict(newtrain_qtr.rf, newdata=newtrain_qtr_test)
+confusionMatrix(p, newtrain_qtr_test$classe)
+```
+Since we notice a slight degradation in **Accuracy** of 1%, we stop paring variables, and run against the real test data set.  These predictions were submitted as Part 2 of this Class Project.
+```{R}
+t <- qtrnames[2:length(qtrnames)]                 # test data set does not have classe variable
+realtest_qtr <- realtest[, t]                     # get the surviving variable columns
+p.rf <- predict(newtrain_qtr.rf, realtest_qtr)    # predict against the model
+p.rf                                              # show the predictions
+```
+```{R,echo=F}
+rm(newtrain_qtr_test)
+rm(newtrain_qtr.rf)
+```
+
+###GBM Boosting
+We used the same technique of evaluation using GBM Boosting. We only show the Summary Tables for brevity.
+
+**GBM Summary over all the variables:**
+```{R, echo=F}
+# get cached variables
+newtrain_train.predict_gbm <- readRDS("newtrain_train.predict_gbm.rds")
+newtrain_train <- readRDS("newtrain_train.rds")
+newtrain_train.gbm <- readRDS("newtrain_train.gbm.rds")
+```
+```{R}
+confusionMatrix(newtrain_train.predict_gbm, newtrain_train$classe)
+```
+```{R, echo=F}
+# free up memory
+# rm(newtrain_train.predict_gbm)
+# rm(newtrain_train)
+```
+Although training of GBM only took half the time to train than the random forest, we immediately see that the Accuracy of **GBM** is not as good as random forests. So, we stop here and see how well it will predict against the test data set.
+
+**Crossvalidate** BGM on the test set
+```{R, messages=F}
+p <- predict(newtrain_train.gbm, newtrain_test)    # run on the test set
+confusionMatrix(p, newtrain_test$classe)           # how good were the predictions?
+```
+
+Now run on the real data
+```{R}
+p <- predict(newtrain_train.gbm, realtest)         # run it on the real test set
+p                                                  # show the predictions of gbm
+p.rf                                               # show predictions of random forest
+```
+
+###Conclusion
+
+In this particular case, both models forecast the same outcomes (which we know are correct). However, the lower **Accuracy** score of **GBM** gives less confidence than random forests and because we were able to reduce the number of predictors for the random forest.
+
+Only a quarter of the variables were necessary for random forest, with still a higher level of expected Accuracy than BGM.  This allowed computing times for random forest to be less than BGM.
+
+The reason for hihgher Accuracy in random forest would still be an area of interest for further investigation. Possibly it is due to the many more forests (500) in random forest versus the iterations (150) in BGM.
+
