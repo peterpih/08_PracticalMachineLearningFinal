@@ -1,3 +1,10 @@
+# Dear Grader,
+# For the Course Project please look here:
+https://github.com/peterpih/PracticalMachineLearning/tree/gh-pages
+Thank you
+----------------------------------------------------------------------------------------------------------------------------
+
+
 ```{R}
 setwd("C:/R/PracticalMachineLearning")
 ```
